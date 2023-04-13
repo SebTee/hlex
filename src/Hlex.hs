@@ -1,10 +1,10 @@
 module Hlex
-    ( Grammar
-    , Lexer
-    , LexError(LexError)
-    , Tokenizer(Skip, Tokenize, JustToken)
-    , hlex
-    ) where
+     ( Grammar
+     , Lexer
+     , LexError(..)
+     , Tokenizer(..)
+     , hlex
+     ) where
 
 import Text.Regex.TDFA
 import Data.List.Split (splitOn)
