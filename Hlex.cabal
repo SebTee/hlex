@@ -38,6 +38,10 @@ test-suite Hlex-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      ExampleLang
+      Exceptions
+      Successes
+      TestResources
       Paths_Hlex
   hs-source-dirs:
       test
