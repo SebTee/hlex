@@ -1,35 +1,68 @@
+{-|
+Module      : Hlex
+Description : Lexer creation tools
+Copyright   : (c) Sebastian Tee, 2023
+License     : MIT
+
+Tools needed to create a 'Lexer' from a lexical 'Grammar'.
+-}
 module Hlex
-     ( Grammar
+     ( -- * Example
+       -- $example
+
+       -- * Types
+       Grammar
+     , TokenSyntax(..)
      , Lexer
-     , LexError(..)
-     , Tokenizer(..)
+       -- ** Exceptions
+     , LexException(..)
+       -- * Functions
      , hlex
      ) where
 
 import Text.Regex.TDFA
 import Data.List.Split (splitOn)
 
-data LexError = LexError Int Int String
+-- | Exception thrown when a 'Lexer' is unable to lex a string.
+data LexException = LexException
+  Int -- ^ The line number where the string that couldn't be lexed is located.
+  Int -- ^ The column where the string that couldn't be lexed is located.
+  String -- ^ The String that couldn't be lexed.
   deriving(Read, Show, Eq)
 
-data Tokenizer a = Skip String
-                 | Tokenize String (String -> a)
-                 | JustToken String a
+-- | These are the individual rules that make up a 'Grammar'.
+--
+-- Takes a __POSIX regular expression__ then converts it to a token or skips it.
+data TokenSyntax token
+  = Skip -- ^ Skips over any matches.
+    String -- ^ Regular expression.
+  | Tokenize -- ^ Takes a function that converts the matched string to a token.
+    String -- ^ Regular expression.
+    (String -> token) -- ^ Function that converts the matched string into a token.
+  | JustToken -- ^ Converts any regular expression matches to a given token.
+    String -- ^ Regular expression.
+    token -- ^ Given token.
 
-type InternalToken a = (String, Maybe (String -> a))
+type InternalToken token = (String, Maybe (String -> token))
 
-type Grammar a = [Tokenizer a]
+-- | Lexical grammar made up of 'TokenSyntax' rules.
+--
+-- The __order is important__. The 'Lexer' will apply each 'TokenSyntax' rule in the order listed.
+type Grammar token = [TokenSyntax token]
 
-type Lexer a = String -> Either LexError [a]
+-- | Converts a string into a list of tokens.
+-- If the string does not follow the Lexer's 'Grammar' a 'LexException' will be returned.
+type Lexer token = String -> Either LexException [token]
 
-tokenizerToInternalToken :: Tokenizer a -> InternalToken a
+tokenizerToInternalToken :: TokenSyntax a -> InternalToken a
 tokenizerToInternalToken (Skip regex) = (regex, Nothing)
 tokenizerToInternalToken (Tokenize regex toToken) = (regex, Just toToken)
 tokenizerToInternalToken (JustToken regex token) = (regex, Just $ \_ -> token)
 
-hlex :: Grammar a -> Lexer a
+-- | Takes a given 'Grammar' and turns it into a 'Lexer'.
+hlex :: Grammar token -> Lexer token
 hlex grammar program = case lexInternal (map tokenizerToInternalToken grammar) program of
-  Left invalidString -> Left $ (uncurry LexError $ findSubstringColRow invalidString program) invalidString
+  Left invalidString -> Left $ (uncurry LexException $ findSubstringColRow invalidString program) invalidString
   Right tokens -> Right tokens
 
 lexInternal :: [InternalToken a] -> String -> Either String [a]
@@ -55,3 +88,39 @@ findSubstringColRow subStr str = (lineNo, colNo)
     prevLines = lines prev
     lineNo = length prevLines
     colNo = 1 + (length $ last prevLines)
+
+{- $example
+Here is an example module for a simple language.
+
+@
+  module ExampleLang
+       ( MyToken(..) -- Export the language's tokens and the lexer
+       , myLexer
+       ) where
+
+  import Hlex
+
+  data MyToken = Ident String -- String identifier token
+               | Number Float -- Number token and numeric value
+               | Assign       -- Assignment operator token
+               deriving(Show)
+
+  myGrammar :: Grammar MyToken
+  myGrammar = [ JustToken "=" Assign                                     -- "=" Operator becomes the assign token
+            , Tokenize "[a-zA-Z]+" (\match -> Ident match)                -- Identifier token with string
+            , Tokenize "[0-9]+(\\.[0-9]+)?" (\match -> Number (read match) -- Number token with the parsed numeric value stored as a Float
+            , Skip "[ \n\r\t]+"                                             -- Skip whitespace
+            ]
+
+  myLexer :: Lexer MyToken
+  myLexer = hlex myGrammar -- hlex turns a Grammar into a Lexer
+@
+
+Here is the lexer being used on a simple program.
+
+>>> lexer "x = 1.2"
+Right [Ident "x", Assign, Number 1.2]
+
+The lexer uses 'Either'. Right means the lexer successfully parsed the program to a list of MyTokens.
+If Left was returned it would be a 'LexException'.
+-}
