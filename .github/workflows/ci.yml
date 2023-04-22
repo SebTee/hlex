@@ -55,5 +55,8 @@ jobs:
         with:
           path: 'docs'
 
+      - name: Deploy documentation to GitHub Pages
+        uses: actions/deploy-pages@v2
+
       - name: Run tests
         run: cabal test all
