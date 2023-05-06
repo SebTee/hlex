@@ -70,7 +70,7 @@ test-suite Hlex-test
       -rtsopts
       -with-rtsopts=-N
   build-depends:
-      HUnit
+      HUnit ==1.6.*
     , hlex
     , base >=4.7 && <5
     , regex-tdfa ==1.3.*
