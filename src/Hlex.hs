@@ -103,11 +103,11 @@ Here is an example module for a simple language.
                deriving(Show)
 
   myGrammar :: Grammar MyToken
-  myGrammar = [ JustToken "=" Assign                                     -- "=" Operator becomes the assign token
-            , Tokenize "[a-zA-Z]+" (\match -> Ident match)                -- Identifier token with string
-            , Tokenize "[0-9]+(\\.[0-9]+)?" (\match -> Number (read match) -- Number token with the parsed numeric value stored as a Float
-            , Skip "[ \n\r\t]+"                                             -- Skip whitespace
-            ]
+  myGrammar = [ JustToken "=" Assign                                       -- "=" Operator becomes the assign token
+              , Tokenize "[a-zA-Z]+" (\match -> Ident match)                -- Identifier token with string
+              , Tokenize "[0-9]+(\\.[0-9]+)?" (\match -> Number (read match) -- Number token with the parsed numeric value stored as a Float
+              , Skip "[ \\n\\r\\t]+"                                          -- Skip whitespace
+              ]
 
   myLexer :: Lexer MyToken
   myLexer = hlex myGrammar -- hlex turns a Grammar into a Lexer
