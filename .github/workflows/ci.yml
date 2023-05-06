@@ -11,25 +11,17 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
 
 jobs:
   build:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-haskell@v1
-      - uses: actions/configure-pages@v3
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Haskell
+        uses: actions/setup-haskell@v1
 
       - name: Cache
         uses: actions/cache@v3
@@ -39,7 +31,6 @@ jobs:
           path: |
             ~/.cabal
             ~/.ghcup
-            ./dist-newstyle
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}
           restore-keys: |
             ${{ runner.os }}-build-${{ env.cache-name }}-
@@ -52,17 +43,7 @@ jobs:
           cabal build --only-dependencies --enable-tests --enable-benchmarks
 
       - name: Build
-        run: |
-          cabal build --enable-tests --enable-benchmarks --enable-documentation all
-          cp -r $(find ./ -type d -wholename "*/doc/html/*") ./docs
-
-      - name: Publish documentation
-        uses: actions/upload-pages-artifact@v1
-        with:
-          path: 'docs'
-
-      - name: Deploy documentation to GitHub Pages
-        uses: actions/deploy-pages@v2
+        run: cabal build --enable-tests --enable-benchmarks all
 
       - name: Run tests
         run: cabal test all
