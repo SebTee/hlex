@@ -21,12 +21,19 @@ module Hlex
      ) where
 
 import Text.Regex.TDFA ((=~))
+import Data.Maybe (maybeToList)
 
--- | Exception thrown when a 'Lexer' is unable to lex a string.
-data LexException = LexException
-  Int -- ^ The line number where the string that couldn't be lexed is located.
-  Int -- ^ The column where the string that couldn't be lexed is located.
-  String -- ^ The String that couldn't be lexed.
+-- | Exception thrown when a 'Lexer' encounters an error when lexxing a string.
+data LexException 
+  = UnmatchedException -- ^ Exception thrown when a substring cannot be matched.
+    Int -- ^ The line number where the substring that couldn't be lexed is located.
+    Int -- ^ The column where the substring that couldn't be lexed is located.
+    String -- ^ The subtring that couldn't be lexed.
+  | MatchedException -- ^ Exception thrown when a macth is found on the 'Error' 'TokenSyntax'.
+    Int -- ^ The line number where the matched string is located.
+    Int -- ^ The column where the matched string is located.
+    String -- ^ The matched string.
+    String -- ^ Error message.
   deriving(Read, Show, Eq)
 
 -- | These are the individual rules that make up a 'Grammar'.
@@ -41,8 +48,9 @@ data TokenSyntax token
   | JustToken -- ^ Converts any regular expression matches to a given token.
     String -- ^ Regular expression.
     token -- ^ Given token.
-
-type InternalToken token = (String, Maybe (String -> token))
+  | Error -- ^ Returns an error with a message when a match occurs.
+    String -- ^ Regular expression.
+    String -- ^ Error message.
 
 -- | Lexical grammar made up of 'TokenSyntax' rules.
 --
@@ -53,31 +61,27 @@ type Grammar token = [TokenSyntax token]
 -- If the string does not follow the Lexer's 'Grammar' a 'LexException' will be returned.
 type Lexer token = String -> Either LexException [token]
 
-tokenizerToInternalToken :: TokenSyntax a -> InternalToken a
-tokenizerToInternalToken (Skip regex) = (regex, Nothing)
-tokenizerToInternalToken (Tokenize regex toToken) = (regex, Just toToken)
-tokenizerToInternalToken (JustToken regex token) = (regex, Just $ \_ -> token)
-
 -- | Takes a given 'Grammar' and turns it into a 'Lexer'.
 hlex :: Grammar token -> Lexer token
-hlex = lexInternal 1 1 . map tokenizerToInternalToken
+hlex = hlex' 1 1
 
-lexInternal :: Int -> Int -> [InternalToken token] -> Lexer token
-lexInternal _ _ _ "" = Right []
-lexInternal row col ((regex, t):grammar) program = if null matchedText
-  then lexInternal row col grammar program
-  else do
-    before <- parsedBefore
-    after <- parsedAfter
-    case t of
-      Nothing -> Right $ before ++ after
-      Just tk -> Right $ before ++ tk matchedText : after
+hlex' :: Int -> Int -> Grammar token -> Lexer token
+hlex' _ _ _ [] = Right []
+hlex' row col tzss@(tz:tzs) program =
+  if null matchedText
+  then hlex' row col tzs program
+  else case tz of
+    Error _ errMessage -> Left $ uncurry MatchedException (getLastCharPos row col beforeProgram) matchedText errMessage
+    Skip _ -> lexCont Nothing
+    Tokenize _ f -> lexCont $ Just $ f matchedText
+    JustToken _ token -> lexCont $ Just token
   where
-    (beforeProgram, matchedText, afterProgram) = program =~ regex :: (String, String, String)
-    (afterRow, afterCol) = getLastCharPos row col (beforeProgram ++ matchedText)
-    parsedBefore = lexInternal row col grammar beforeProgram
-    parsedAfter = lexInternal afterRow afterCol ((regex, t):grammar) afterProgram
-lexInternal row col _ invalidString = Left $ LexException row col invalidString
+    (beforeProgram, matchedText, afterProgram) = program =~ getRegex tz :: (String, String, String)
+    lexCont t = do
+      before <- hlex' row col tzs beforeProgram
+      after <- uncurry hlex' (getLastCharPos row col (beforeProgram ++ matchedText)) tzss afterProgram
+      Right $ before ++ maybeToList t ++ after
+hlex' row col _ invalidString = Left $ UnmatchedException row col invalidString
 
 getLastCharPos :: Int -> Int -> String -> (Int, Int)
 getLastCharPos startRow startCol x = (startRow + addRow, addCol + if addRow == 0 then startCol else 1)
@@ -85,6 +89,12 @@ getLastCharPos startRow startCol x = (startRow + addRow, addCol + if addRow == 0
     ls = lines x
     addRow = length ls - 1
     addCol = length $ last ls
+
+getRegex :: TokenSyntax token -> String
+getRegex (Skip regex) = regex
+getRegex (Tokenize regex _) = regex
+getRegex (JustToken regex _) = regex
+getRegex (Error regex _) = regex
 
 {- $example
 Here is an example module for a simple language.
