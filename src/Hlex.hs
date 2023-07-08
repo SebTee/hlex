@@ -12,7 +12,7 @@ module Hlex
 
        -- * Types
        Grammar
-     , TokenSyntax(..)
+     , GrammarRule(..)
      , Lexer
        -- ** Exceptions
      , LexException(..)
@@ -29,7 +29,7 @@ data LexException
     Int -- ^ The line number where the substring that couldn't be lexed is located.
     Int -- ^ The column where the substring that couldn't be lexed is located.
     String -- ^ The subtring that couldn't be lexed.
-  | MatchedException -- ^ Exception thrown when a macth is found on the 'Error' 'TokenSyntax'.
+  | MatchedException -- ^ Exception thrown when a macth is found on the 'Error' 'GrammarRule'.
     Int -- ^ The line number where the matched string is located.
     Int -- ^ The column where the matched string is located.
     String -- ^ The matched string.
@@ -39,7 +39,7 @@ data LexException
 -- | These are the individual rules that make up a 'Grammar'.
 --
 -- Takes a __POSIX regular expression__ then converts it to a token or skips it.
-data TokenSyntax token
+data GrammarRule token
   = Skip -- ^ Skips over any matches.
     String -- ^ Regular expression.
   | Tokenize -- ^ Takes a function that converts the matched string to a token.
@@ -52,10 +52,10 @@ data TokenSyntax token
     String -- ^ Regular expression.
     String -- ^ Error message.
 
--- | Lexical grammar made up of 'TokenSyntax' rules.
+-- | Lexical grammar made up of 'GrammarRule's.
 --
--- The __order is important__. The 'Lexer' will apply each 'TokenSyntax' rule in the order listed.
-type Grammar token = [TokenSyntax token]
+-- The __order is important__. The 'Lexer' will apply each 'GrammarRule' rule in the order listed.
+type Grammar token = [GrammarRule token]
 
 -- | Converts a string into a list of tokens.
 -- If the string does not follow the Lexer's 'Grammar' a 'LexException' will be returned.
@@ -90,7 +90,7 @@ getLastCharPos startRow startCol x = (startRow + addRow, addCol + if addRow == 0
     addRow = length ls - 1
     addCol = length $ last ls
 
-getRegex :: TokenSyntax token -> String
+getRegex :: GrammarRule token -> String
 getRegex (Skip regex) = regex
 getRegex (Tokenize regex _) = regex
 getRegex (JustToken regex _) = regex
