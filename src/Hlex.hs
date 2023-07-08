@@ -113,7 +113,9 @@ Here is an example module for a simple language.
                deriving(Show)
 
   myGrammar :: Grammar MyToken
-  myGrammar = [ JustToken "=" Assign                                       -- "=" Operator becomes the assign token
+  myGrammar = [ Error "\"[^\"]*\n" "Can't have a new line in a string"        -- Return Exception when a new line occurs in a string
+              , Tokenize "\"[^\"]*\"" $ Str . init . tail                     -- Encode string and strip the containing quotes
+              , JustToken "=" Assign                                       -- "=" Operator becomes the assign token
               , Tokenize "[a-zA-Z]+" (\match -> Ident match)                -- Identifier token with string
               , Tokenize "[0-9]+(\\.[0-9]+)?" (\match -> Number (read match) -- Number token with the parsed numeric value stored as a Float
               , Skip "[ \\n\\r\\t]+"                                          -- Skip whitespace
@@ -127,6 +129,11 @@ Here is the lexer being used on a simple program.
 
 >>> lexer "x = 1.2"
 Right [Ident "x", Assign, Number 1.2]
+
+Here is the lexer being used on an program with a syntax error.
+
+>>> lexer "x = \"a\nb\""
+Left (MatchedException 1 5 "\"a\n" "Can't have a new line in a string")
 
 The lexer uses 'Either'. Right means the lexer successfully parsed the program to a list of MyTokens.
 If Left was returned it would be a 'LexException'.
