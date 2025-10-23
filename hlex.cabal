@@ -1,7 +1,7 @@
 cabal-version: 1.12
 
 name:           hlex
-version:        1.0.0
+version:        1.0.1
 synopsis:       Simple Lexer Creation
 description:    This package provides the tools to create a simple lexer.
 category:       lexer

@@ -13,3 +13,10 @@ _2023-07-08, Sebastian Tee_
 Rename TokenSyntax to GrammarRule
 
 Add Error GrammarRule
+
+### 1.0.1
+
+_2025-10-08, Sebastian Tee_
+
+Update sample program in haddock documentation so that it compiles 
+successfully when copied and pasted
