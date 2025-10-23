@@ -24,7 +24,7 @@ import Text.Regex.TDFA ((=~))
 import Data.Maybe (maybeToList)
 
 -- | Exception thrown when a 'Lexer' encounters an error when lexxing a string.
-data LexException 
+data LexException
   = UnmatchedException -- ^ Exception thrown when a substring cannot be matched.
     Int -- ^ The line number where the substring that couldn't be lexed is located.
     Int -- ^ The column where the substring that couldn't be lexed is located.
@@ -100,39 +100,40 @@ getRegex (Error regex _) = regex
 Here is an example module for a simple language.
 
 @
-  module ExampleLang
+module ExampleLang
        ( MyToken(..) -- Export the language's tokens and the lexer
        , myLexer
        ) where
 
-  import Hlex
+import Hlex
 
-  data MyToken = Ident String -- String identifier token
+data MyToken = Ident String   -- String identifier token
                | Number Float -- Number token and numeric value
+               | Str String   -- Enquoted String literal
                | Assign       -- Assignment operator token
                deriving(Show)
 
-  myGrammar :: Grammar MyToken
-  myGrammar = [ Error "\"[^\"]*\n" "Can't have a new line in a string"        -- Return Exception when a new line occurs in a string
-              , Tokenize "\"[^\"]*\"" $ Str . init . tail                     -- Encode string and strip the containing quotes
-              , JustToken "=" Assign                                       -- "=" Operator becomes the assign token
-              , Tokenize "[a-zA-Z]+" (\match -> Ident match)                -- Identifier token with string
-              , Tokenize "[0-9]+(\\.[0-9]+)?" (\match -> Number (read match) -- Number token with the parsed numeric value stored as a Float
-              , Skip "[ \\n\\r\\t]+"                                          -- Skip whitespace
+myGrammar :: Grammar MyToken
+myGrammar = [ Error "\\"[^\\"]*\n" "Can't have a new line in a string"         -- Return Exception when a new line occurs in a string
+              , Tokenize "\\"[^\\"]*\\"" $ Str . init . tail                   -- Encode string and strip the containing quotes
+              , JustToken "=" Assign                                        -- "=" Operator becomes the assign token
+              , Tokenize "[a-zA-Z]+" Ident                                  -- Identifier token with string
+              , Tokenize "[0-9]+(\\\\.[0-9]+)?" $ Number . read               -- Number token with the parsed numeric value stored as a Float
+              , Skip "[ \\n\\r\\t]+"                                           -- Skip whitespace
               ]
 
-  myLexer :: Lexer MyToken
-  myLexer = hlex myGrammar -- hlex turns a Grammar into a Lexer
+myLexer :: Lexer MyToken
+myLexer = hlex myGrammar -- hlex turns a Grammar into a Lexer
 @
 
 Here is the lexer being used on a simple program.
 
->>> lexer "x = 1.2"
+>>> myLexer "x = 1.2"
 Right [Ident "x", Assign, Number 1.2]
 
 Here is the lexer being used on an program with a syntax error.
 
->>> lexer "x = \"a\nb\""
+>>> myLexer "x = \"a\nb\""
 Left (MatchedException 1 5 "\"a\n" "Can't have a new line in a string")
 
 The lexer uses 'Either'. Right means the lexer successfully parsed the program to a list of MyTokens.
